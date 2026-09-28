@@ -1,0 +1,47 @@
+﻿@page "/"
+@using MudBlazor
+@rendermode InteractiveServer
+
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Stock Replenishment</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large">
+
+    <MudPaper Class="pa-8 mt-8">
+
+        <MudText Typo="Typo.h4">
+            Stock Replenishment Request System
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mt-4">
+            Create, submit, approve, reject and fulfill
+            material replenishment requests.
+        </MudText>
+
+        <MudButton Class="mt-6"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="BrowseRequests">
+
+            Browse Requests
+
+        </MudButton>
+
+    </MudPaper>
+
+</MudContainer>
+
+@code {
+
+    // [Inject]
+    // private NavigationManager Navigation { get; set; } = default!;
+
+    private void BrowseRequests()
+    {
+        // Snackbar.Add("Navigating to Requests...", Severity.Success);
+        Navigation.NavigateTo("/requests");
+    }
+
+}

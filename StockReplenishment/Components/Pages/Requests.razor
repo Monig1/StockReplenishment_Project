@@ -1,0 +1,203 @@
+﻿@page "/requests"
+@using MudBlazor
+@using StockReplenishment.DTOs
+@using StockReplenishment.Models
+@using StockReplenishment.Services
+@rendermode InteractiveServer
+
+@inject ReplenishmentApiClient ApiClient
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Requests</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h3">Stock Replenishment Requests</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateRequest">
+        New Request
+    </MudButton>
+</MudStack>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudSelect T="string" Label="Status" @bind-Value="statusFilter">
+                <MudSelectItem T="string" Value="@("")">All</MudSelectItem>
+                @foreach (var status in Enum.GetValues<RequestStatus>())
+                {
+                    <MudSelectItem T="string" Value="@status.ToString()">@status</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudSelect T="string" Label="Priority" @bind-Value="priorityFilter">
+                <MudSelectItem T="string" Value="@("")">All</MudSelectItem>
+                @foreach (var priority in Enum.GetValues<RequestPriority>())
+                {
+                    <MudSelectItem Value="@priority.ToString()">@priority</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudSelect T="string" Label="Location" @bind-Value="locationFilter">
+                <MudSelectItem T="string" Value="@("")">All</MudSelectItem>
+                @foreach (var location in locations)
+                {
+                    <MudSelectItem Value="@location.Id.ToString()">
+                        @location.Code - @location.Name
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudStack Row="true" Class="mt-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters">
+            Search
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="ClearFilters">
+            Clear
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+@if (isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+
+<MudTable Items="requests" Hover="true" Dense="true" Loading="isLoading">
+    <HeaderContent>
+        <MudTh>ID</MudTh>
+        <MudTh>Location</MudTh>
+        <MudTh>Priority</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Stock Validation</MudTh>
+        <MudTh>Created</MudTh>
+        <MudTh>Action</MudTh>
+    </HeaderContent>
+
+    <RowTemplate>
+        <MudTd>@context.Id</MudTd>
+        <MudTd>@context.LocationCode - @context.LocationName</MudTd>
+        <MudTd>@context.Priority</MudTd>
+        <MudTd>@context.Status</MudTd>
+        <MudTd>@context.StockValidationStatus</MudTd>
+        <MudTd>@context.CreatedAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm")</MudTd>
+        <MudTd>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => OpenRequest(context.Id)">
+                View
+            </MudButton>
+        </MudTd>
+    </RowTemplate>
+
+    <NoRecordsContent>
+        <MudText>No requests found.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+<MudStack Row="true" Justify="Justify.Center" Class="mt-4">
+    <MudButton Disabled="@(currentPage <= 1)" OnClick="PreviousPage">Previous</MudButton>
+    <MudText Class="pa-2">Page @currentPage of @Math.Max(totalPages, 1)</MudText>
+    <MudButton Disabled="@(currentPage >= totalPages)" OnClick="NextPage">Next</MudButton>
+</MudStack>
+
+@code {
+    private List<RequestResponseDto> requests = new();
+    private List<Location> locations = new();
+
+    private string statusFilter = string.Empty;
+    private string priorityFilter = string.Empty;
+    private string locationFilter = string.Empty;
+
+    private int currentPage = 1;
+    private const int PageSize = 10;
+    private int totalPages;
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLocationsAsync();
+        await LoadRequestsAsync();
+    }
+
+    private async Task LoadLocationsAsync()
+    {
+        locations = await ApiClient.GetLocationsAsync();
+    }
+
+    private async Task LoadRequestsAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            RequestStatus? status = Enum.TryParse<RequestStatus>(statusFilter, out var parsedStatus)
+                ? parsedStatus
+                : null;
+
+            RequestPriority? priority = Enum.TryParse<RequestPriority>(priorityFilter, out var parsedPriority)
+                ? parsedPriority
+                : null;
+
+            int? locationId = int.TryParse(locationFilter, out var parsedLocation)
+                ? parsedLocation
+                : null;
+
+            var result = await ApiClient.GetRequestsAsync(
+                status, priority, locationId, currentPage, PageSize);
+
+            requests = result?.Items ?? new List<RequestResponseDto>();
+            totalPages = result?.TotalPages ?? 0;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        currentPage = 1;
+        await LoadRequestsAsync();
+    }
+
+    private async Task ClearFilters()
+    {
+        statusFilter = string.Empty;
+        priorityFilter = string.Empty;
+        locationFilter = string.Empty;
+        currentPage = 1;
+        await LoadRequestsAsync();
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage <= 1) return;
+        currentPage--;
+        await LoadRequestsAsync();
+    }
+
+    private async Task NextPage()
+    {
+        if (currentPage >= totalPages) return;
+        currentPage++;
+        await LoadRequestsAsync();
+    }
+
+    private void OpenRequest(int id)
+    {
+        Navigation.NavigateTo($"/requests/{id}");
+    }
+
+    private void CreateRequest()
+    {
+        Navigation.NavigateTo("/requests/create");
+    }
+}

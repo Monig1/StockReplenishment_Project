@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../StockReplenishment.Tests/StockReplenishment.Tests.csproj" Id="9fb6e217-17e1-466b-8cd4-024a8cf10ed7" />
+  <Project Path="StockReplenishment.csproj" />
+</Solution>
